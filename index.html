@@ -291,6 +291,7 @@
       <input type="file" id="importFile" accept="application/json" style="display:none">
       <button class="btn" id="btnPublish" title="将当前计划发布到云端，他人可在线查看" style="display:none">☁ 发布</button>
       <button class="btn" id="btnAutoPublish" title="开启后每次改动自动同步云端（3秒防抖）" style="display:none">⏺ 自动：关</button>
+      <button class="btn" id="btnCloudEdit" title="输入Token进入编辑模式，可直接在线上版修改并自动同步" style="display:none">✎ 编辑</button>
       <button class="btn btn-primary" id="btnNew">+ 新建事项</button>
     </div>
   </div>
@@ -436,6 +437,7 @@ const GH_API = 'https://api.github.com';
 const IS_CLOUD = location.protocol === 'https:' && /pinkray-fan\.github\.io/.test(location.hostname);
 const AUTO_PUBLISH_KEY = 'auto_publish';
 let autoPublishTimer = null;
+let IS_EDIT = false;
 const defaultCats = [
   {id:'c1',name:'日常工作',color:'#4f6df5'},
   {id:'c2',name:'专项开展',color:'#16a34a'}
@@ -517,12 +519,34 @@ function load(){
   return {items:[],categories:defaultCats.map(c=>({...c})),view:'board',catVersion:CAT_VERSION};
 }
 function save(){
-  if(IS_CLOUD) return;
+  if(IS_CLOUD && !IS_EDIT) return;
+  if(IS_CLOUD && IS_EDIT){
+    if(localStorage.getItem(AUTO_PUBLISH_KEY) === '1'){
+      clearTimeout(autoPublishTimer);
+      autoPublishTimer = setTimeout(()=>publish(true), 3000);
+    }
+    return;
+  }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   if(localStorage.getItem(AUTO_PUBLISH_KEY) === '1' && localStorage.getItem('gh_publish_token')){
     clearTimeout(autoPublishTimer);
     autoPublishTimer = setTimeout(()=>publish(true), 3000);
   }
+}
+function enterEditMode(){
+  let token = localStorage.getItem('gh_publish_token');
+  if(!token){
+    token = prompt('进入编辑模式需要 Token（仅存当前浏览器，不上传）：\n\n在 https://github.com/settings/personal-access-tokens/new 生成，Repository permissions → Contents 设为 Read and write');
+    if(!token){ return }
+    localStorage.setItem('gh_publish_token', token);
+  }
+  IS_EDIT = true;
+  document.body.classList.remove('cloud-readonly');
+  document.getElementById('btnPublish').style.display = '';
+  document.getElementById('btnAutoPublish').style.display = '';
+  document.getElementById('btnCloudEdit').style.display = 'none';
+  updateAutoPublishBtn();
+  toast('✅ 已进入编辑模式，改动会自动同步云端');
 }
 
 /* ========== Cloud sync ========== */
@@ -1393,6 +1417,7 @@ document.getElementById('btnCat').onclick = openCatManager;
 document.getElementById('btnAddCat').onclick = addCategory;
 document.getElementById('btnPublish').onclick = ()=>publish(false);
 document.getElementById('btnAutoPublish').onclick = toggleAutoPublish;
+document.getElementById('btnCloudEdit').onclick = enterEditMode;
 document.getElementById('newCatName').onkeydown = (e)=>{if(e.key==='Enter')addCategory()};
 ['searchInput','filterCat','filterPri','filterStatus','filterOwner'].forEach(id=>{
   document.getElementById(id).oninput = render;
@@ -1403,6 +1428,7 @@ document.getElementById('newCatName').onkeydown = (e)=>{if(e.key==='Enter')addCa
 if(IS_CLOUD){
   /* 云端只读模式：禁用编辑、拉取云端数据 */
   document.body.classList.add('cloud-readonly');
+  document.getElementById('btnCloudEdit').style.display = '';
   render();
   loadCloud();
 }else{
