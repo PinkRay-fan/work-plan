@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人工作台</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#ffffff; --border:#e5e7eb; --text:#1f2937; --muted:#6b7280;
+    --primary:#4f6df5; --primary-soft:#eef2ff; --green:#16a34a; --green-soft:#dcfce7;
+    --amber:#d97706; --amber-soft:#fef3c7; --red:#dc2626; --red-soft:#fee2e2;
+    --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+    --shadow-lg:0 10px 30px rgba(0,0,0,.12);
+    --radius:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,textarea,select{font-family:inherit;font-size:14px;color:var(--text)}
+  ::placeholder{color:#9ca3af}
+  a{color:var(--primary);text-decoration:none}
+
+  .app{max-width:1080px;margin:0 auto;padding:20px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+  .topbar h1{font-size:22px;font-weight:700;letter-spacing:.3px}
+  .topbar .date{color:var(--muted);font-size:13px;margin-top:2px}
+  .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{padding:8px 14px;border-radius:8px;background:var(--card);border:1px solid var(--border);font-size:13px;font-weight:500;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{background:#f9fafb;border-color:#d1d5db}
+  .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .btn-primary:hover{background:#3f5ce0;border-color:#3f5ce0}
+  .btn-sm{padding:5px 10px;font-size:12px;border-radius:6px}
+  .btn-icon{padding:6px;border-radius:6px;line-height:1}
+  .btn-danger{color:var(--red)}
+  .btn-danger:hover{background:var(--red-soft);border-color:#fecaca}
+  .btn-ghost{border-color:transparent;background:transparent}
+  .btn-ghost:hover{background:#f3f4f6}
+
+  .tabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:20px;width:fit-content}
+  .tab{padding:7px 16px;border-radius:7px;font-size:13px;font-weight:500;color:var(--muted);transition:all .15s}
+  .tab.active{background:var(--primary);color:#fff}
+  .tab:not(.active):hover{background:#f3f4f6;color:var(--text)}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+  .stat .label{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .stat .value{font-size:26px;font-weight:700;line-height:1.1}
+  .stat .sub{font-size:11px;color:var(--muted);margin-top:4px}
+  .stat.todo .value{color:var(--primary)}
+  .stat.doing .value{color:var(--amber)}
+  .stat.done .value{color:var(--green)}
+  .stat.overdue .value{color:var(--red)}
+
+  .filters{display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+  .search{flex:1;min-width:200px;position:relative}
+  .search input{width:100%;padding:9px 12px 9px 32px;border:1px solid var(--border);border-radius:8px;background:var(--card);outline:none;transition:border .15s}
+  .search input:focus{border-color:var(--primary)}
+  .search::before{content:"🔍";position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.5}
+  .select{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--card);outline:none;cursor:pointer}
+  .select:focus{border-color:var(--primary)}
+  .cat-wrap{display:inline-flex;align-items:center}
+  .cat-wrap .select{border-radius:8px 0 0 8px}
+  .cat-wrap .gear{border-radius:0 8px 8px 0;border-left:none}
+
+  /* Board */
+  .board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  .col{background:#eceef2;border:1px solid #e3e6ec;border-radius:14px;padding:10px;display:flex;flex-direction:column;min-height:440px}
+  .col-top{height:4px;border-radius:4px;margin:0 4px 10px}
+  .col-header{display:flex;align-items:center;justify-content:space-between;padding:2px 8px 10px;font-weight:700;font-size:13px;letter-spacing:.2px}
+  .col-header .count{font-size:11px;color:#6b7280;font-weight:600;background:#fff;padding:2px 9px;border-radius:10px;border:1px solid #e3e6ec}
+  .col-body{flex:1;display:flex;flex-direction:column;gap:10px;min-height:50px;padding:2px}
+  .col-body.drag-over{background:rgba(79,109,245,.08);border:2px dashed var(--primary);border-radius:10px;margin:2px;padding:8px}
+  .col-empty{text-align:center;padding:30px 10px;color:#9ca3af}
+  .col-empty .ce-icon{font-size:26px;opacity:.4;margin-bottom:6px}
+  .col-empty .ce-text{font-size:12px;font-weight:500}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:13px 14px;box-shadow:0 1px 2px rgba(0,0,0,.04);cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s;display:flex;flex-direction:column;gap:9px}
+  .card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.10);border-color:#d1d5db}
+  .card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .card-title{font-weight:600;font-size:14px;line-height:1.45;color:var(--text);flex:1;word-break:break-word}
+  .pri-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex-shrink:0;background:var(--primary)}
+  .pri-dot.pri-high{background:var(--red)}
+  .pri-dot.pri-medium{background:var(--amber)}
+  .pri-dot.pri-low{background:var(--primary)}
+  .card-desc{color:#6b7280;font-size:11.5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:0}
+  .card-progress{display:flex;flex-direction:column;gap:5px}
+  .card-progress.empty{background:#f9fafb;border:1px dashed #e5e7eb;border-radius:8px;padding:7px 9px}
+  .card-progress.empty .prog-label{color:#9ca3af;font-size:11px;text-align:center}
+  .prog-info{display:flex;justify-content:space-between;font-size:10.5px;color:#6b7280;font-weight:500}
+  .prog-info .prog-pct{color:var(--green);font-weight:700}
+  .prog-bar{height:6px;background:#eef0f3;border-radius:3px;overflow:hidden}
+  .prog-bar > i{display:block;height:100%;border-radius:3px;transition:width .3s}
+  .card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:9px;border-top:1px solid #f3f4f6;margin-top:2px}
+  .foot-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-width:0;flex:1}
+  .owners{display:flex;align-items:center;flex-shrink:0;margin-left:auto;padding-left:6px}
+  .avatar{width:22px;height:22px;border-radius:50%;background:var(--primary);color:#fff;font-size:10px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;border:2px solid #fff;margin-left:-6px;box-shadow:0 0 0 1px rgba(0,0,0,.06)}
+  .avatar:first-child{margin-left:0}
+  .avatar.more{background:#9ca3af;font-size:9px}
+
+  .badge{padding:2px 7px;border-radius:8px;font-size:10.5px;font-weight:500;line-height:1.4;display:inline-flex;align-items:center;white-space:nowrap}
+  .badge-cat{background:var(--primary-soft);color:var(--primary)}
+  .badge-due{background:#f3f4f6;color:#4b5563}
+  .badge-overdue{background:var(--red-soft);color:var(--red);font-weight:600}
+  .badge-today{background:var(--amber-soft);color:var(--amber);font-weight:600}
+  .badge-pri-high{background:var(--red-soft);color:var(--red)}
+  .badge-pri-medium{background:var(--amber-soft);color:var(--amber)}
+  .badge-pri-low{background:var(--primary-soft);color:var(--primary)}
+
+  /* List */
+  .list{display:flex;flex-direction:column;gap:8px}
+  .row{background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+  .row-main{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .12s}
+  .row-main:hover{background:#fafbfc}
+  .row .expand{width:18px;text-align:center;color:var(--muted);transition:transform .15s;font-size:11px}
+  .row.expanded .expand{transform:rotate(90deg)}
+  .row .rcheck{width:18px;height:18px;border:2px solid #d1d5db;border-radius:5px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+  .row .rcheck.done{background:var(--green);border-color:var(--green);color:#fff}
+  .row .rcheck.done::after{content:"✓";font-size:12px;font-weight:700}
+  .row .rmain{flex:1;min-width:0}
+  .row .rtitle{font-weight:600;font-size:13.5px}
+  .row.done .rtitle{color:var(--muted)}
+  .row .rmeta{display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--muted);margin-top:3px;flex-wrap:wrap}
+  .sublist{border-top:1px solid var(--border);background:#fafbfc}
+  .sublist .subrow{display:grid;grid-template-columns:24px 1fr 110px 110px 1fr 90px 28px;gap:8px;align-items:center;padding:9px 16px 9px 38px;border-bottom:1px solid #f1f3f5;font-size:12.5px}
+  .sublist .subrow:last-child{border-bottom:none}
+  .sublist .subrow:hover{background:#f3f4f6}
+  .sublist .subrow .scheck{width:16px;height:16px;border:2px solid #d1d5db;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+  .sublist .subrow .scheck.done{background:var(--green);border-color:var(--green);color:#fff}
+  .sublist .subrow .scheck.done::after{content:"✓";font-size:10px;font-weight:700}
+  .sublist .subrow.done .stitle{color:var(--muted)}
+  .sublist .subrow .small{font-size:11px;color:var(--muted)}
+  .sublist .sub-empty{padding:14px 16px 14px 38px;color:var(--muted);font-size:12px}
+  .sub-head{display:grid;grid-template-columns:24px 1fr 110px 110px 1fr 90px 28px;gap:8px;padding:8px 16px 8px 38px;background:#f3f4f6;font-size:11px;color:var(--muted);font-weight:600;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+  .sub-head > div{display:flex;align-items:center}
+
+  .empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px}
+  .empty .big{font-size:40px;margin-bottom:8px;opacity:.4}
+
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-start;justify-content:center;z-index:50;padding:30px 16px;overflow-y:auto}
+  .overlay.show{display:flex}
+  .modal{background:var(--card);border-radius:14px;width:100%;max-width:680px;box-shadow:var(--shadow-lg);overflow:hidden;margin:auto}
+  .modal-lg{max-width:900px}
+  .modal-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--card);z-index:2}
+  .modal-header h2{font-size:16px;font-weight:700}
+  .modal-body{padding:20px 22px;max-height:70vh;overflow-y:auto}
+  .modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;background:#fafbfc;position:sticky;bottom:0}
+
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
+  .field input,.field textarea,.field select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;outline:none;transition:border .15s}
+  .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--primary)}
+  .field textarea{resize:vertical;min-height:60px}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .field-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .priority-pick{display:flex;gap:6px}
+  .priority-pick label{flex:1;text-align:center;padding:8px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;font-weight:500;transition:all .15s}
+  .priority-pick input{display:none}
+  .priority-pick input:checked + label{background:var(--primary-soft);border-color:var(--primary);color:var(--primary)}
+
+  /* subtask editor block */
+  .sub-edit-list{display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+  .sub-edit{border:1px solid var(--border);border-radius:10px;padding:12px;background:#fafbfc}
+  .sub-edit-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .sub-edit-head .idx{font-size:12px;font-weight:600;color:var(--muted)}
+  .sub-edit .fline{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px;margin-bottom:8px}
+  .sub-edit .fline2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+  .sub-edit .lbl{font-size:11px;color:var(--muted);margin-bottom:3px;display:block}
+  .sub-edit input,.sub-edit textarea,.sub-edit select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12.5px;background:#fff;outline:none}
+  .sub-edit input:focus,.sub-edit textarea:focus,.sub-edit select:focus{border-color:var(--primary)}
+  .sub-edit textarea{min-height:46px;resize:vertical}
+
+  /* Detail */
+  .detail-section{margin-bottom:18px}
+  .detail-section h3{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+  .detail-title{font-size:18px;font-weight:700;margin-bottom:8px;line-height:1.4}
+  .detail-desc{color:#374151;font-size:13.5px;margin-bottom:14px;white-space:pre-wrap;background:#f9fafb;padding:12px;border-radius:8px;border:1px solid var(--border)}
+  .detail-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .d-subrow{display:grid;grid-template-columns:24px 1fr 100px 100px;gap:10px;padding:10px 0;border-bottom:1px solid #f1f3f5;font-size:12.5px;align-items:flex-start}
+  .d-subrow:last-child{border-bottom:none}
+  .d-subrow .dcheck{width:16px;height:16px;border:2px solid #d1d5db;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:2px;transition:all .15s}
+  .d-subrow .dcheck.done{background:var(--green);border-color:var(--green);color:#fff}
+  .d-subrow .dcheck.done::after{content:"✓";font-size:10px;font-weight:700}
+  .d-subrow .cell .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+  .d-subrow .cell .val{font-size:12.5px}
+  .d-subrow.done .stitle{color:var(--muted)}
+  .edit-btn{cursor:pointer;color:var(--muted);font-size:13px;padding:2px 6px;border-radius:4px;transition:all .15s;display:inline-flex;align-items:center;user-select:none}
+  .edit-btn:hover{color:var(--blue);background:rgba(79,109,245,.08)}
+  .row .row-edit{margin-left:4px;opacity:.5;transition:opacity .15s}
+  .row:hover .row-edit{opacity:1}
+  .sublist .sub-edit{font-size:12px}
+  .overdue-card{cursor:pointer;transition:all .15s}
+  .overdue-card:hover{border-color:var(--blue)!important;box-shadow:0 2px 10px rgba(79,109,245,.14);transform:translateY(-1px)}
+  /* ===== Timeline list view ===== */
+  .tl{display:flex;flex-direction:column;gap:8px}
+  .tl-axis{display:grid;grid-template-columns:300px 1fr;position:sticky;top:10px;z-index:30;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+  .tl-axis-info{display:flex;align-items:center;padding:0 14px;font-size:11.5px;color:var(--muted);border-right:1px solid var(--border);background:#fafbfc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tl-track{position:relative;min-width:0}
+  .tl-axis-track{height:38px}
+  .tl-weekend{position:absolute;top:0;bottom:0;background:#f6f8fb;z-index:0}
+  .tl-tick{position:absolute;top:0;bottom:0;border-left:1px dashed #eceff3;z-index:1}
+  .tl-tick-label{position:absolute;top:10px;transform:translateX(-50%);font-size:10px;color:var(--muted);white-space:nowrap;z-index:2}
+  .tl-tick-label.today{color:var(--red);font-weight:700}
+  .tl-today-line{position:absolute;top:0;bottom:0;border-left:2px dashed var(--red);opacity:.45;z-index:4;pointer-events:none}
+  .tl-today-tag{position:absolute;top:0;transform:translateX(-50%);background:var(--red);color:#fff;font-size:9px;line-height:1;padding:3px 6px;border-radius:0 0 4px 4px;z-index:5;white-space:nowrap}
+  .tl-row{display:grid;grid-template-columns:300px 1fr;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+  .tl-row-main{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;border-right:1px solid var(--border);min-width:0}
+  .tl-row-main:hover{background:#fafbfc}
+  .tl-row.expanded .expand{transform:rotate(90deg)}
+  .tl-row-track{min-height:48px;display:flex;align-items:center}
+  .tl-sublist{grid-column:1/-1;border-top:1px solid var(--border);background:#fafbfc}
+  .tl-subrow{display:grid;grid-template-columns:300px 1fr;border-bottom:1px solid #f0f2f5}
+  .tl-subrow:last-child{border-bottom:none}
+  .tl-subrow:hover{background:#f5f7fa}
+  .tl-sub-info{display:flex;gap:8px;align-items:flex-start;padding:8px 14px 8px 38px;border-right:1px solid var(--border);cursor:pointer;min-width:0}
+  .tl-sub-info .scheck{margin-top:3px;flex-shrink:0;width:15px;height:15px;border:2px solid #d1d5db;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+  .tl-sub-info .scheck.done{background:var(--green);border-color:var(--green);color:#fff}
+  .tl-sub-info .scheck.done::after{content:"✓";font-size:9px;font-weight:700}
+  .tl-sub-info .stitle{font-size:12.5px;font-weight:600;line-height:1.4;word-break:break-word}
+  .tl-subrow.done .stitle{color:var(--muted)}
+  .ssub{font-size:10.5px;color:var(--muted);line-height:1.6;word-break:break-word}
+  .s-prog{color:#6b7280}
+  .tl-sub-track{min-height:42px;display:flex;align-items:center}
+  .tl-mark{position:absolute;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;z-index:6;cursor:pointer}
+  .tl-mark.is-done{opacity:.6}
+  .tl-dot{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.10),0 1px 3px rgba(0,0,0,.15)}
+  .tl-dnum{font-size:9px;font-weight:700;margin-top:1px;line-height:1}
+  .tl-mark-item{position:absolute;top:50%;width:13px;height:13px;transform:translate(-50%,-50%) rotate(45deg);border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.18);z-index:6;cursor:pointer;border-radius:3px}
+  .tl-date-text{display:none}
+  .tl-sub-empty{padding:12px 16px 12px 38px;color:var(--muted);font-size:12px}
+  @media(max-width:820px){
+    .tl-axis{display:none}
+    .tl-row,.tl-subrow{grid-template-columns:1fr}
+    .tl-row-main,.tl-sub-info{border-right:none}
+    .tl-track{display:none}
+    .tl-date-text{display:inline}
+  }
+  .d-subrow .progress-box{background:#f9fafb;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;min-height:30px;white-space:pre-wrap}
+  .d-subrow .progress-box.empty{color:var(--muted);font-style:italic}
+
+  /* Toast */
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;box-shadow:var(--shadow-lg);z-index:100;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+
+  @media (max-width:980px){
+    .board{grid-template-columns:1fr}
+    .field-row,.field-row-3,.sub-edit .fline,.sub-edit .fline2{grid-template-columns:1fr}
+    .sublist .subrow,.sub-head{grid-template-columns:24px 1fr 90px 28px}
+    .sublist .subrow .col-del,.sublist .subrow .col-deliverable,.sub-head .col-deliverable{display:none}
+    .d-subrow{grid-template-columns:24px 1fr}
+    .app{padding:14px}
+  }
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:4px}
+  ::-webkit-scrollbar-thumb:hover{background:#9ca3af}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div>
+      <h1>个人工作台</h1>
+      <div class="date" id="todayDate"></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btnExport" title="导出JSON备份">⬇ 导出</button>
+      <button class="btn" id="btnImport" title="导入JSON">⬆ 导入</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+      <button class="btn btn-primary" id="btnNew">+ 新建事项</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-view="board">📋 看板</button>
+    <button class="tab" data-view="list">☰ 列表</button>
+    <button class="tab" data-view="stats">📊 统计</button>
+  </div>
+
+  <div class="filters" id="filtersBar">
+    <div class="search"><input type="text" id="searchInput" placeholder="搜索事项 / 子任务 / 责任人…"></div>
+    <div class="cat-wrap">
+      <select class="select" id="filterCat"><option value="">全部分类</option></select>
+      <button class="btn btn-sm gear" id="btnCat" title="管理分类">⚙</button>
+    </div>
+    <select class="select" id="filterPri">
+      <option value="">全部优先级</option>
+      <option value="high">高</option>
+      <option value="medium">中</option>
+      <option value="low">低</option>
+    </select>
+    <select class="select" id="filterStatus">
+      <option value="">全部状态</option>
+      <option value="todo">待办</option>
+      <option value="doing">进行中</option>
+      <option value="done">已完成</option>
+    </select>
+    <select class="select" id="filterOwner">
+      <option value="">全部责任人</option>
+    </select>
+  </div>
+
+  <div id="viewContainer"></div>
+</div>
+
+<!-- Editor -->
+<div class="overlay" id="editorOverlay">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2 id="editorTitle">新建事项</h2>
+      <button class="btn btn-icon" data-close="editorOverlay">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>事项标题 *</label>
+        <input type="text" id="fTitle" placeholder="一句话描述这个事项/目标">
+      </div>
+      <div class="field">
+        <label>事项说明</label>
+        <textarea id="fDesc" placeholder="背景、目标、范围、验收标准等（可选）"></textarea>
+      </div>
+      <div class="field-row-3">
+        <div class="field">
+          <label>分类</label>
+          <select id="fCategory"></select>
+        </div>
+        <div class="field">
+          <label>事项截止日期</label>
+          <input type="date" id="fDeadline">
+        </div>
+        <div class="field">
+          <label>优先级</label>
+          <select id="fPriority">
+            <option value="high">高</option>
+            <option value="medium" selected>中</option>
+            <option value="low">低</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>事项状态</label>
+        <select id="fStatus">
+          <option value="todo" selected>待办</option>
+          <option value="doing">进行中</option>
+          <option value="done">已完成</option>
+        </select>
+      </div>
+
+      <div class="detail-section" style="margin-top:20px">
+        <h3>子任务拆解 <button class="btn btn-sm btn-primary" id="btnAddSub" type="button">+ 添加子任务</button></h3>
+        <div class="sub-edit-list" id="subEditList"></div>
+        <div style="font-size:12px;color:var(--muted)" id="subEditEmpty">尚无子任务。一个事项可拆解为多个可执行的小任务，每个子任务可指定责任人、计划完成时间、交付物与进展。</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btnDelete" style="margin-right:auto;display:none">删除事项</button>
+      <button class="btn" data-close="editorOverlay">取消</button>
+      <button class="btn btn-primary" id="btnSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail -->
+<div class="overlay" id="detailOverlay">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2>事项详情</h2>
+      <button class="btn btn-icon" data-close="detailOverlay">✕</button>
+    </div>
+    <div class="modal-body" id="detailBody"></div>
+    <div class="modal-footer">
+      <button class="btn" id="btnDetailEdit">编辑</button>
+      <button class="btn" id="btnDetailStatus">推进状态</button>
+      <button class="btn btn-primary" data-close="detailOverlay">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Category manager -->
+<div class="overlay" id="catOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>分类管理</h2>
+      <button class="btn btn-icon" data-close="catOverlay">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>新增分类</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="newCatName" placeholder="分类名称" style="flex:1">
+          <input type="color" id="newCatColor" value="#4f6df5" style="width:48px;height:38px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer">
+          <button class="btn btn-primary" id="btnAddCat">添加</button>
+        </div>
+      </div>
+      <div class="detail-section">
+        <h3>已有分类</h3>
+        <div id="catList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ========== State ========== */
+const STORAGE_KEY = 'workbench_v2';
+const defaultCats = [
+  {id:'c1',name:'日常工作',color:'#4f6df5'},
+  {id:'c2',name:'专项开展',color:'#16a34a'}
+];
+const CAT_VERSION = 2;
+let state = load();
+
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+
+function migrate(old){
+  // v1 tasks -> v2 items, with each task becoming an item whose logs become a subtask progress
+  if(!old) return null;
+  if(old.items) return old;
+  if(!old.tasks) return null;
+  const items = old.tasks.map(t=>{
+    const lastLog = (t.logs&&t.logs.length)?t.logs[t.logs.length-1].content:'';
+    const subtasks = [];
+    if(t.logs&&t.logs.length){
+      subtasks.push({
+        id:uid(), title:'推进事项', owner:'',
+        deadline:t.deadline, deliverable:'',
+        progress:lastLog, status:t.status,
+        createdAt:t.createdAt, updatedAt:Date.now()
+      });
+    }
+    return {
+      id:t.id, title:t.title, description:t.description||'',
+      categoryId:t.categoryId, priority:t.priority||'medium',
+      status:t.status||'todo', deadline:t.deadline||null,
+      createdAt:t.createdAt, updatedAt:t.updatedAt||t.createdAt,
+      subtasks
+    };
+  });
+  return {items, categories:old.categories||defaultCats.map(c=>({...c})), view:old.view||'board'};
+}
+
+function migrateCatsV2(st){
+  const newCats = [
+    {id:'c1',name:'日常工作',color:'#4f6df5'},
+    {id:'c2',name:'专项开展',color:'#16a34a'}
+  ];
+  const map = {};
+  (st.categories||[]).forEach(c=>{
+    const n = c.name||'';
+    if(n.includes('日常') || n.includes('其他')) map[c.id] = 'c1';
+    else map[c.id] = 'c2';
+  });
+  st.categories = newCats.map(c=>({...c}));
+  (st.items||[]).forEach(it=>{ it.categoryId = map[it.categoryId] || 'c1'; });
+  return st;
+}
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const d = JSON.parse(raw);
+      let st = {items:d.items||[],categories:d.categories||defaultCats.map(c=>({...c})),view:d.view||'board',catVersion:d.catVersion||0};
+      if(st.catVersion < CAT_VERSION){
+        st = migrateCatsV2(st);
+        st.catVersion = CAT_VERSION;
+        try{localStorage.setItem(STORAGE_KEY, JSON.stringify(st))}catch(e){}
+      }
+      return st;
+    }
+    // try migrate v1
+    const rawV1 = localStorage.getItem('workbench_v1');
+    if(rawV1){
+      const mig = migrate(JSON.parse(rawV1));
+      if(mig){
+        let st = {items:mig.items,categories:mig.categories,view:mig.view||'board',catVersion:0};
+        st = migrateCatsV2(st);
+        st.catVersion = CAT_VERSION;
+        try{localStorage.setItem(STORAGE_KEY, JSON.stringify(st))}catch(e){}
+        return st;
+      }
+    }
+  }catch(e){console.warn('load failed',e)}
+  return {items:[],categories:defaultCats.map(c=>({...c})),view:'board',catVersion:CAT_VERSION};
+}
+function save(){localStorage.setItem(STORAGE_KEY, JSON.stringify(state))}
+
+/* ========== Date helpers ========== */
+const today = new Date(); today.setHours(0,0,0,0);
+function fmtDate(d){
+  if(!d) return '';
+  const dt = new Date(d);
+  return `${dt.getMonth()+1}月${dt.getDate()}日`;
+}
+function dateStatus(d){
+  if(!d) return null;
+  const dt = new Date(d); dt.setHours(0,0,0,0);
+  const diff = Math.round((dt-today)/86400000);
+  if(diff<0) return 'overdue';
+  if(diff===0) return 'today';
+  if(diff<=2) return 'soon';
+  return null;
+}
+function startOfWeek(d){const r=new Date(d);const day=(r.getDay()||7)-1;r.setDate(r.getDate()-day);r.setHours(0,0,0,0);return r}
+function startOfMonth(d){const r=new Date(d);r.setDate(1);r.setHours(0,0,0,0);return r}
+
+/* ========== Toast ========== */
+let toastTimer;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'),1800);
+}
+
+/* ========== Util ========== */
+function escapeHtml(s){return (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function statusLabel(s){return {todo:'待办',doing:'进行中',done:'已完成'}[s]||s}
+
+/* ========== Render: topbar ========== */
+function renderDate(){
+  const d = new Date();
+  const wk = ['日','一','二','三','四','五','六'][d.getDay()];
+  document.getElementById('todayDate').textContent =
+    `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 · 星期${wk}`;
+}
+
+/* ========== Render: filters ========== */
+function renderFilters(){
+  const catSel = document.getElementById('filterCat');
+  const curCat = catSel.value;
+  catSel.innerHTML = '<option value="">全部分类</option>' +
+    state.categories.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  catSel.value = curCat;
+
+  const ownerSel = document.getElementById('filterOwner');
+  const curO = ownerSel.value;
+  const owners = Array.from(new Set(state.items.flatMap(i=>(i.subtasks||[]).map(s=>s.owner).filter(Boolean)))).sort();
+  ownerSel.innerHTML = '<option value="">全部责任人</option>' + owners.map(o=>`<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+  ownerSel.value = curO;
+}
+
+/* ========== Filter ========== */
+function filtered(){
+  const kw = document.getElementById('searchInput').value.trim().toLowerCase();
+  const cat = document.getElementById('filterCat').value;
+  const pri = document.getElementById('filterPri').value;
+  const st = document.getElementById('filterStatus').value;
+  const owner = document.getElementById('filterOwner').value;
+  return state.items.filter(i=>{
+    if(cat && i.categoryId!==cat) return false;
+    if(pri && i.priority!==pri) return false;
+    if(st && i.status!==st) return false;
+    if(owner && !(i.subtasks||[]).some(s=>s.owner===owner)) return false;
+    if(kw){
+      const hay = (i.title+' '+(i.description||'')+' '+i.subtasks.map(s=>s.title+' '+(s.owner||'')+' '+(s.deliverable||'')+' '+(s.progress||'')).join(' ')).toLowerCase();
+      if(!hay.includes(kw)) return false;
+    }
+    return true;
+  }).sort((a,b)=>{
+    if(a.status==='done' && b.status!=='done') return 1;
+    if(b.status==='done' && a.status!=='done') return -1;
+    const p={high:0,medium:1,low:2};
+    if(p[a.priority]!==p[b.priority]) return p[a.priority]-p[b.priority];
+    if(a.deadline && b.deadline) return a.deadline.localeCompare(b.deadline);
+    if(a.deadline) return -1;
+    if(b.deadline) return 1;
+    return b.createdAt-a.createdAt;
+  });
+}
+
+/* ========== Subtask progress ========== */
+function subProgress(item){
+  const subs = item.subtasks||[];
+  if(!subs.length) return {total:0,done:0,rate:null};
+  const done = subs.filter(s=>s.status==='done').length;
+  return {total:subs.length,done,rate:Math.round(done/subs.length*100)};
+}
+
+/* ========== Render main ========== */
+function render(){
+  renderDate();
+  renderFilters();
+  const v = state.view;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===v));
+  document.getElementById('filtersBar').style.display = v==='stats' ? 'none' : 'flex';
+  const c = document.getElementById('viewContainer');
+  if(v==='board') c.innerHTML = renderBoard();
+  else if(v==='list') c.innerHTML = renderList();
+  else c.innerHTML = renderStats();
+  bindViewEvents();
+}
+
+/* ---------- Board ---------- */
+function renderBoard(){
+  const items = filtered();
+  const cols = [
+    {key:'todo',label:'待办',color:'var(--primary)'},
+    {key:'doing',label:'进行中',color:'var(--amber)'},
+    {key:'done',label:'已完成',color:'var(--green)'}
+  ];
+  let html = '<div class="board">';
+  cols.forEach(col=>{
+    const arr = items.filter(i=>i.status===col.key);
+    html += `<div class="col">
+      <div class="col-top" style="background:${col.color}"></div>
+      <div class="col-header">
+        <span style="color:${col.color}">${col.label}</span>
+        <span class="count">${arr.length}</span>
+      </div>
+      <div class="col-body" data-status="${col.key}">`;
+    arr.forEach(it=>html += cardHtml(it));
+    if(!arr.length) html += '<div class="col-empty"><div class="ce-icon">📋</div><div class="ce-text">暂无事项</div></div>';
+    html += `</div></div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function cardHtml(it){
+  const cat = state.categories.find(c=>c.id===it.categoryId);
+  const ds = dateStatus(it.deadline);
+  const overdue = ds==='overdue' && it.status!=='done';
+  const todayBadge = ds==='today' && it.status!=='done';
+  const soonBadge = ds==='soon' && it.status!=='done';
+  const sp = subProgress(it);
+  const allOwners = Array.from(new Set((it.subtasks||[]).map(s=>s.owner).filter(Boolean)));
+  const shownOwners = allOwners.slice(0,2);
+  const extraOwners = allOwners.length - shownOwners.length;
+  const priLabel = it.priority==='high'?'高':it.priority==='medium'?'中':'低';
+
+  // progress block
+  let progHtml;
+  if(sp.total){
+    const barColor = sp.rate>=100?'linear-gradient(90deg,#22c55e,#16a34a)':sp.rate>=50?'linear-gradient(90deg,#fbbf24,#d97706)':'linear-gradient(90deg,#9ca3af,#6b7280)';
+    const pctColor = sp.rate>=100?'var(--green)':sp.rate>=50?'var(--amber)':'var(--muted)';
+    progHtml = `<div class="card-progress">
+      <div class="prog-info"><span>子任务进度</span><span class="prog-pct" style="color:${pctColor}">${sp.done}/${sp.total} · ${sp.rate}%</span></div>
+      <div class="prog-bar"><i style="width:${sp.rate}%;background:${barColor}"></i></div>
+    </div>`;
+  }else{
+    progHtml = `<div class="card-progress empty"><div class="prog-label">未拆解子任务</div></div>`;
+  }
+
+  // foot meta: category + due
+  let footMeta = '';
+  if(cat) footMeta += `<span class="badge badge-cat"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${cat.color};margin-right:4px"></span>${escapeHtml(cat.name)}</span>`;
+  if(it.deadline) footMeta += `<span class="badge ${overdue?'badge-overdue':todayBadge?'badge-today':'badge-due'}">${overdue?'逾期 ':todayBadge?'今天 ':soonBadge?'近期 ':''}${fmtDate(it.deadline)}</span>`;
+
+  // owners avatars
+  let ownersHtml = '';
+  if(shownOwners.length){
+    ownersHtml = '<div class="owners">';
+    shownOwners.forEach(o=>{
+      const initial = o.charAt(0).toUpperCase();
+      ownersHtml += `<span class="avatar" title="${escapeHtml(o)}">${escapeHtml(initial)}</span>`;
+    });
+    if(extraOwners>0) ownersHtml += `<span class="avatar more" title="还有 ${extraOwners} 位责任人">+${extraOwners}</span>`;
+    ownersHtml += '</div>';
+  }
+
+  return `<div class="card priority-${it.priority}" draggable="true" data-id="${it.id}">
+    <div class="card-head">
+      <div class="card-title">${escapeHtml(it.title)}</div>
+      <span class="pri-dot pri-${it.priority}" title="${priLabel}优先级"></span>
+    </div>
+    ${it.description?`<div class="card-desc">${escapeHtml(it.description)}</div>`:''}
+    ${progHtml}
+    <div class="card-foot">
+      <div class="foot-meta">${footMeta||'<span style="font-size:10.5px;color:#9ca3af">无标签</span>'}</div>
+      ${ownersHtml}
+    </div>
+  </div>`;
+}
+
+/* ---------- List (timeline) ---------- */
+function toDateStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function tlRange(items){
+  const DAY=86400000;
+  const today=new Date();today.setHours(0,0,0,0);
+  let min=today.getTime(),max=today.getTime();
+  const push=d=>{if(!d)return;const t=new Date(d+'T00:00:00').getTime();if(!isNaN(t)){if(t<min)min=t;if(t>max)max=t}};
+  items.forEach(it=>{push(it.deadline);(it.subtasks||[]).forEach(s=>push(s.deadline))});
+  const start=new Date(min-2*DAY);start.setHours(0,0,0,0);
+  let end=new Date(max+4*DAY);end.setHours(0,0,0,0);
+  let days=Math.round((end-start)/DAY);
+  if(days<14){end=new Date(start.getTime()+14*DAY);days=14}
+  return {start,end,days};
+}
+// 单一坐标系：所有刻度/标记/今日线都用此百分比定位
+function tlPct(dateStr,range){
+  if(!dateStr)return null;
+  const t=new Date(dateStr+'T00:00:00').getTime();
+  if(isNaN(t))return null;
+  return Math.max(0,Math.min(100,(t-range.start.getTime())/(range.end.getTime()-range.start.getTime())*100));
+}
+function tlTrackBg(range,{ticks=false,weekend=false}={}){
+  const DAY=86400000;const {start,days}=range;
+  let html='';
+  if(weekend){
+    for(let i=0;i<=days;i++){
+      const d=new Date(start.getTime()+i*DAY);
+      if(d.getDay()===0||d.getDay()===6) html+=`<div class="tl-weekend" style="left:${(i/days*100)}%;width:${100/days}%"></div>`;
+    }
+  }
+  if(ticks){
+    const idxs=[];
+    if(days<=24){for(let i=0;i<=days;i++)idxs.push(i)}
+    else if(days<=70){for(let i=0;i<=days;i++){if(new Date(start.getTime()+i*DAY).getDay()===1)idxs.push(i)}if(idxs[0]!==0)idxs.unshift(0)}
+    else{for(let i=0;i<=days;i++){if(new Date(start.getTime()+i*DAY).getDate()===1)idxs.push(i)}if(idxs[0]!==0)idxs.unshift(0)}
+    const todayStr=toDateStr(new Date());
+    idxs.forEach(i=>{
+      const d=new Date(start.getTime()+i*DAY);
+      const pct=i/days*100;
+      html+=`<div class="tl-tick" style="left:${pct}%"></div>`;
+      const isToday=toDateStr(d)===todayStr;
+      let label;
+      if(days<=24)label=isToday?'今天':`${d.getMonth()+1}/${d.getDate()}`;
+      else if(days<=70)label=`${d.getMonth()+1}/${d.getDate()}`;
+      else label=`${d.getFullYear()}/${d.getMonth()+1}`;
+      html+=`<div class="tl-tick-label ${isToday?'today':''}" style="left:${pct}%">${label}</div>`;
+    });
+  }
+  const tp=tlPct(toDateStr(new Date()),range);
+  if(tp!=null)html+=`<div class="tl-today-line" style="left:${tp}%"></div>`;
+  return html;
+}
+function tlMarkColor(status,deadline){
+  if(status==='done')return 'var(--green)';
+  const ds=dateStatus(deadline);
+  if(ds==='overdue')return 'var(--red)';
+  if(ds==='today')return 'var(--amber)';
+  return 'var(--blue)';
+}
+function renderList(){
+  const items = filtered();
+  if(!items.length) return emptyHtml('没有符合条件的项');
+  const range = tlRange(items);
+  const todayStr = toDateStr(new Date());
+  let html = `<div class="tl">`;
+  html += `<div class="tl-axis">
+    <div class="tl-axis-info">📅 时间轴 · ${range.start.getMonth()+1}/${range.start.getDate()} – ${range.end.getMonth()+1}/${range.end.getDate()}（共 ${range.days} 天）</div>
+    <div class="tl-track tl-axis-track">${tlTrackBg(range,{ticks:true,weekend:true})}<div class="tl-today-tag" style="left:${tlPct(todayStr,range)}%">今天</div></div>
+  </div>`;
+  items.forEach(it=>{
+    const cat = state.categories.find(c=>c.id===it.categoryId);
+    const sp = subProgress(it);
+    const ds = dateStatus(it.deadline);
+    const overdue = ds==='overdue' && it.status!=='done';
+    const todayBadge = ds==='today' && it.status!=='done';
+    let meta = '';
+    if(cat) meta += `<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${cat.color};margin-right:4px;vertical-align:middle"></span>${escapeHtml(cat.name)}</span>`;
+    meta += `<span>· ${it.priority==='high'?'高':it.priority==='medium'?'中':'低'}优先级</span>`;
+    if(sp.total) meta += `<span>· 子任务 ${sp.done}/${sp.total}</span>`;
+    meta += `<span class="tl-date-text">· ${it.deadline?(overdue?'逾期 ':todayBadge?'今天 ':'')+fmtDate(it.deadline):'无截止日期'}</span>`;
+    const itemPct = it.deadline?tlPct(it.deadline,range):null;
+    const itemColor = tlMarkColor(it.status,it.deadline);
+    html += `<div class="tl-row ${it.status==='done'?'done':''}" data-id="${it.id}">
+      <div class="tl-row-main" data-toggle-parent="${it.id}">
+        <span class="expand">▶</span>
+        <div class="rcheck ${it.status==='done'?'done':''}" data-toggle="${it.id}"></div>
+        <div class="rmain">
+          <div class="rtitle">${escapeHtml(it.title)}</div>
+          <div class="rmeta">${meta}</div>
+        </div>
+        <span class="badge badge-pri-${it.priority}">${statusLabel(it.status)}</span>
+        <span class="edit-btn row-edit" data-edit="${it.id}" title="编辑事项">✎</span>
+      </div>
+      <div class="tl-track tl-row-track">
+        ${tlTrackBg(range,{})}
+        ${itemPct!=null?`<div class="tl-mark-item" style="left:${itemPct}%;background:${itemColor}" data-edit="${it.id}" title="${escapeHtml(it.title)}&#10;截止：${fmtDate(it.deadline)}"></div>`:''}
+      </div>`;
+    if(it.subtasks && it.subtasks.length){
+      html += `<div class="tl-sublist">`;
+      it.subtasks.forEach(s=>{
+        const sds = dateStatus(s.deadline);
+        const sover = sds==='overdue' && s.status!=='done';
+        const stoday = sds==='today' && s.status!=='done';
+        const pct = s.deadline?tlPct(s.deadline,range):null;
+        const color = tlMarkColor(s.status,s.deadline);
+        const day = s.deadline?new Date(s.deadline+'T00:00:00').getDate():'';
+        const tip = `${escapeHtml(s.title)}&#10;责任人：${s.owner?escapeHtml(s.owner):'—'}&#10;计划完成：${s.deadline?fmtDate(s.deadline):'无'}&#10;交付物：${s.deliverable?escapeHtml(s.deliverable):'—'}&#10;进展：${s.progress?escapeHtml(s.progress):'暂无'}`;
+        html += `<div class="tl-subrow ${s.status==='done'?'done':''}">
+          <div class="tl-sub-info" data-edit="${it.id}">
+            <div class="scheck ${s.status==='done'?'done':''}" data-sub-toggle="${it.id}|${s.id}"></div>
+            <div style="min-width:0;flex:1">
+              <div class="stitle">${escapeHtml(s.title)}</div>
+              <div class="ssub">${s.owner?`👤 ${escapeHtml(s.owner)} `:''}<span class="tl-date-text">${s.deadline?(sover?'逾期 ':stoday?'今天 ':'')+fmtDate(s.deadline):'无日期'}</span>${s.deliverable?` · 📦 ${escapeHtml(s.deliverable)}`:''}</div>
+              ${s.progress?`<div class="ssub s-prog">📝 ${escapeHtml(s.progress)}</div>`:''}
+            </div>
+            <span class="edit-btn sub-edit" data-edit="${it.id}" title="编辑子任务">✎</span>
+          </div>
+          <div class="tl-track tl-sub-track">
+            ${tlTrackBg(range,{weekend:true})}
+            ${pct!=null?`<div class="tl-mark ${s.status==='done'?'is-done':''}" style="left:${pct}%" data-edit="${it.id}" title="${tip}">
+              <span class="tl-dot" style="background:${color}"></span>
+              <span class="tl-dnum" style="color:${color}">${day}</span>
+            </div>`:''}
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+    }else{
+      html += `<div class="tl-sublist"><div class="tl-sub-empty">该事项尚未拆解子任务，点击 ✎ 添加</div></div>`;
+    }
+    html += `</div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+/* ---------- Stats ---------- */
+function renderStats(){
+  const items = state.items;
+  const allSubs = items.flatMap(i=>(i.subtasks||[]));
+  const todo = items.filter(i=>i.status==='todo').length;
+  const doing = items.filter(i=>i.status==='doing').length;
+  const done = items.filter(i=>i.status==='done').length;
+  const overdueItems = items.filter(i=>i.status!=='done' && dateStatus(i.deadline)==='overdue').length;
+  const overdueSubs = allSubs.filter(s=>s.status!=='done' && dateStatus(s.deadline)==='overdue').length;
+  const weekStart = startOfWeek(new Date());
+  const monthStart = startOfMonth(new Date());
+  const weekDoneItems = items.filter(i=>i.status==='done' && i.updatedAt && new Date(i.updatedAt)>=weekStart).length;
+  const completionRate = items.length?Math.round(done/items.length*100):0;
+  const subTotal = allSubs.length;
+  const subDone = allSubs.filter(s=>s.status==='done').length;
+  const subRate = subTotal?Math.round(subDone/subTotal*100):0;
+
+  let html = `<div class="stats">
+    <div class="stat todo"><div class="label">待办事项</div><div class="value">${todo}</div><div class="sub">待启动</div></div>
+    <div class="stat doing"><div class="label">进行中</div><div class="value">${doing}</div><div class="sub">正在推进</div></div>
+    <div class="stat done"><div class="label">已完成事项</div><div class="value">${done}</div><div class="sub">累计完成</div></div>
+    <div class="stat overdue"><div class="label">逾期事项</div><div class="value">${overdueItems}</div><div class="sub">需立即处理</div></div>
+    <div class="stat"><div class="label">事项完成率</div><div class="value">${completionRate}%</div><div class="sub">${done}/${items.length}</div></div>
+    <div class="stat done"><div class="label">子任务完成率</div><div class="value">${subRate}%</div><div class="sub">${subDone}/${subTotal}</div></div>
+    <div class="stat overdue"><div class="label">逾期子任务</div><div class="value">${overdueSubs}</div><div class="sub">需立即处理</div></div>
+    <div class="stat done"><div class="label">本周完成事项</div><div class="value">${weekDoneItems}</div><div class="sub">本周战果</div></div>
+  </div>`;
+
+  // by owner
+  const ownerMap = {};
+  allSubs.forEach(s=>{
+    if(!s.owner) return;
+    if(!ownerMap[s.owner]) ownerMap[s.owner] = {total:0,done:0,doing:0,todo:0};
+    ownerMap[s.owner].total++;
+    ownerMap[s.owner][s.status]++;
+  });
+  const owners = Object.keys(ownerMap).sort((a,b)=>ownerMap[b].total-ownerMap[a].total);
+  if(owners.length){
+    html += '<div class="detail-section"><h3>各责任人子任务</h3>';
+    owners.forEach(o=>{
+      const x = ownerMap[o];
+      const rate = x.total?Math.round(x.done/x.total*100):0;
+      html += `<div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span>👤 ${escapeHtml(o)}</span>
+          <span style="color:var(--muted)">${x.done}/${x.total} · ${rate}%</span>
+        </div>
+        <div style="height:8px;background:#f3f4f6;border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${rate}%;background:var(--green);border-radius:4px;transition:width .4s"></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">待办 ${x.todo} · 进行中 ${x.doing} · 完成 ${x.done}</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // by category
+  const byCat = state.categories.map(c=>{
+    const its = items.filter(i=>i.categoryId===c.id);
+    const d = its.filter(i=>i.status==='done').length;
+    return {cat:c,total:its.length,done:d};
+  }).filter(x=>x.total>0).sort((a,b)=>b.total-a.total);
+  if(byCat.length){
+    html += '<div class="detail-section"><h3>各分类事项进展</h3>';
+    byCat.forEach(x=>{
+      const rate = x.total?Math.round(x.done/x.total*100):0;
+      html += `<div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${x.cat.color};margin-right:6px;vertical-align:middle"></span>${escapeHtml(x.cat.name)}</span>
+          <span style="color:var(--muted)">${x.done}/${x.total} · ${rate}%</span>
+        </div>
+        <div style="height:8px;background:#f3f4f6;border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${rate}%;background:${x.cat.color};border-radius:4px;transition:width .4s"></div>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // overdue subtasks
+  const odSubs = allSubs.filter(s=>s.status!=='done' && dateStatus(s.deadline)==='overdue')
+    .sort((a,b)=>(a.deadline||'').localeCompare(b.deadline||''));
+  if(odSubs.length){
+    html += '<div class="detail-section"><h3>逾期子任务 <span style="color:var(--red);font-size:12px">'+odSubs.length+' 个</span></h3>';
+    odSubs.forEach(s=>{
+      const parent = items.find(i=>(i.subtasks||[]).some(x=>x.id===s.id));
+      html += `<div class="overdue-card" data-edit="${parent?parent.id:''}" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:12.5px" title="点击编辑">
+        <div style="font-weight:600">${escapeHtml(s.title)}</div>
+        <div style="color:var(--muted);margin-top:3px;font-size:11.5px">
+          ${parent?`<span>属于：${escapeHtml(parent.title)}</span> · `:''}
+          ${s.owner?`<span>👤 ${escapeHtml(s.owner)}</span> · `:''}
+          <span style="color:var(--red)">逾期 ${fmtDate(s.deadline)}</span>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  if(!items.length) html = emptyHtml('还没有任何事项，点击右上角"+ 新建事项"开始拆解你的工作');
+  return html;
+}
+
+function emptyHtml(msg){return `<div class="empty"><div class="big">📋</div>${msg}</div>`}
+
+/* ========== Events: view ========== */
+function bindViewEvents(){
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{state.view=t.dataset.view;save();render()});
+  // card click (board)
+  document.querySelectorAll('.card[data-id]').forEach(el=>el.onclick=()=>openDetail(el.dataset.id));
+  // list row: toggle parent done (rcheck) / expand row
+  document.querySelectorAll('[data-toggle-parent]').forEach(el=>el.onclick=(e)=>{
+    if(e.target.closest('[data-toggle],[data-edit]')) return;
+    const row = el.closest('.row');
+    row.classList.toggle('expanded');
+  });
+  document.querySelectorAll('[data-edit]').forEach(el=>el.onclick=(e)=>{
+    e.stopPropagation();
+    openDetail(el.dataset.edit);
+  });
+  document.querySelectorAll('[data-toggle]').forEach(el=>el.onclick=(e)=>{
+    e.stopPropagation();
+    toggleItemDone(el.dataset.toggle);
+  });
+  document.querySelectorAll('[data-sub-toggle]').forEach(el=>el.onclick=(e)=>{
+    e.stopPropagation();
+    const [iid,sid] = el.dataset.subToggle.split('|');
+    toggleSubDone(iid,sid);
+  });
+  // drag and drop on board
+  document.querySelectorAll('.card').forEach(c=>{
+    c.ondragstart = (e)=>{e.dataTransfer.setData('id',c.dataset.id);c.style.opacity='0.5'};
+    c.ondragend = ()=>c.style.opacity='1';
+  });
+  document.querySelectorAll('.col-body').forEach(col=>{
+    col.ondragover = (e)=>{e.preventDefault();col.classList.add('drag-over')};
+    col.ondragleave = ()=>col.classList.remove('drag-over');
+    col.ondrop = (e)=>{
+      e.preventDefault();col.classList.remove('drag-over');
+      const id = e.dataTransfer.getData('id');
+      changeItemStatus(id, col.dataset.status);
+    };
+  });
+}
+
+/* ========== Ops ========== */
+function toggleItemDone(id){
+  const it = state.items.find(x=>x.id===id); if(!it) return;
+  if(it.status==='done'){it.status='todo'}else{it.status='done';it.updatedAt=Date.now()}
+  save(); render(); toast(it.status==='done'?'事项已标记完成':'已恢复待办');
+}
+function toggleSubDone(iid,sid){
+  const it = state.items.find(x=>x.id===iid); if(!it) return;
+  const s = (it.subtasks||[]).find(x=>x.id===sid); if(!s) return;
+  s.status = s.status==='done'?'todo':'done';
+  s.updatedAt = Date.now();
+  // auto cascade item status if all subtasks done
+  const sp = subProgress(it);
+  if(sp.total && sp.done===sp.total && it.status!=='done'){it.status='done';it.updatedAt=Date.now()}
+  else if(sp.done<sp.total && it.status==='done'){it.status='doing';it.updatedAt=Date.now()}
+  save(); render(); toast('子任务已'+(s.status==='done'?'完成':'恢复'));
+}
+function changeItemStatus(id, st){
+  const it = state.items.find(x=>x.id===id); if(!it||it.status===st) return;
+  it.status = st; it.updatedAt = Date.now();
+  save(); render(); toast('事项状态已更新为：'+statusLabel(st));
+}
+
+/* ========== Editor ========== */
+let editingItem = null; // working copy
+function openEditor(id){
+  const src = id ? state.items.find(x=>x.id===id) : null;
+  editingItem = src ? JSON.parse(JSON.stringify(src)) : {
+    id:uid(), title:'', description:'', categoryId:state.categories[0]?.id||'',
+    priority:'medium', status:'todo', deadline:null,
+    createdAt:Date.now(), updatedAt:Date.now(), subtasks:[]
+  };
+  document.getElementById('editorTitle').textContent = id?'编辑事项':'新建事项';
+  document.getElementById('btnDelete').style.display = id?'inline-flex':'none';
+  document.getElementById('fTitle').value = editingItem.title;
+  document.getElementById('fDesc').value = editingItem.description;
+  document.getElementById('fDeadline').value = editingItem.deadline||'';
+  document.getElementById('fPriority').value = editingItem.priority;
+  document.getElementById('fStatus').value = editingItem.status;
+  const catSel = document.getElementById('fCategory');
+  catSel.innerHTML = state.categories.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  catSel.value = editingItem.categoryId;
+  renderSubEditList();
+  showModal('editorOverlay');
+  setTimeout(()=>document.getElementById('fTitle').focus(),50);
+}
+
+function renderSubEditList(){
+  const list = document.getElementById('subEditList');
+  const empty = document.getElementById('subEditEmpty');
+  if(!editingItem.subtasks.length){list.innerHTML='';empty.style.display='block';return}
+  empty.style.display='none';
+  list.innerHTML = editingItem.subtasks.map((s,idx)=>`
+    <div class="sub-edit" data-sid="${s.id}">
+      <div class="sub-edit-head">
+        <span class="idx">子任务 ${idx+1}</span>
+        <button class="btn btn-sm btn-danger" data-delsub="${s.id}" type="button">删除</button>
+      </div>
+      <div class="lbl">标题 *</div>
+      <input type="text" data-field="title" value="${escapeHtml(s.title)}" placeholder="子任务标题">
+      <div class="fline" style="margin-top:8px">
+        <div>
+          <div class="lbl">责任人</div>
+          <input type="text" data-field="owner" value="${escapeHtml(s.owner||'')}" placeholder="责任人">
+        </div>
+        <div>
+          <div class="lbl">计划完成时间</div>
+          <input type="date" data-field="deadline" value="${s.deadline||''}">
+        </div>
+        <div>
+          <div class="lbl">状态</div>
+          <select data-field="status">
+            <option value="todo" ${s.status==='todo'?'selected':''}>待办</option>
+            <option value="doing" ${s.status==='doing'?'selected':''}>进行中</option>
+            <option value="done" ${s.status==='done'?'selected':''}>已完成</option>
+          </select>
+        </div>
+      </div>
+      <div class="fline2" style="margin-top:8px">
+        <div>
+          <div class="lbl">交付物</div>
+          <input type="text" data-field="deliverable" value="${escapeHtml(s.deliverable||'')}" placeholder="交付物（如文档、代码、报告）">
+        </div>
+      </div>
+      <div class="lbl" style="margin-top:8px">进展</div>
+      <textarea data-field="progress" placeholder="当前进展、卡点、下一步…">${escapeHtml(s.progress||'')}</textarea>
+    </div>`).join('');
+  // bind
+  list.querySelectorAll('[data-delsub]').forEach(b=>b.onclick=()=>{
+    editingItem.subtasks = editingItem.subtasks.filter(x=>x.id!==b.dataset.delsub);
+    renderSubEditList();
+  });
+  list.querySelectorAll('input[data-field],textarea[data-field],select[data-field]').forEach(inp=>{
+    const handler = ()=>{
+      const sid = inp.closest('[data-sid]').dataset.sid;
+      const s = editingItem.subtasks.find(x=>x.id===sid); if(!s) return;
+      const f = inp.dataset.field;
+      if(f==='deadline') s[f] = inp.value||null;
+      else s[f] = inp.value;
+      s.updatedAt = Date.now();
+    };
+    inp.oninput = handler;
+    inp.onchange = handler;
+  });
+}
+
+function addSub(){
+  editingItem.subtasks.push({
+    id:uid(), title:'', owner:'', deadline:null, deliverable:'', progress:'', status:'todo',
+    createdAt:Date.now(), updatedAt:Date.now()
+  });
+  renderSubEditList();
+  // focus the newly added title
+  const list = document.getElementById('subEditList');
+  const last = list.querySelector('.sub-edit:last-child input[data-field="title"]');
+  if(last){last.focus();list.scrollTop = list.scrollHeight}
+}
+
+function saveItem(){
+  // sync top-level fields
+  editingItem.title = document.getElementById('fTitle').value.trim();
+  editingItem.description = document.getElementById('fDesc').value.trim();
+  editingItem.categoryId = document.getElementById('fCategory').value;
+  editingItem.deadline = document.getElementById('fDeadline').value || null;
+  editingItem.priority = document.getElementById('fPriority').value;
+  editingItem.status = document.getElementById('fStatus').value;
+  editingItem.updatedAt = Date.now();
+  if(!editingItem.title){toast('请填写事项标题');return}
+  // validate subtasks: title required; drop totally-empty subs
+  const cleanSubs = editingItem.subtasks.filter(s=>(s.title&&s.title.trim()) || s.owner||s.deadline||s.deliverable||s.progress);
+  for(const s of cleanSubs){
+    if(!s.title||!s.title.trim()){toast('每个子任务需填写标题');return}
+    s.title = s.title.trim();
+  }
+  editingItem.subtasks = cleanSubs;
+  // cascade: all subs done -> item done
+  const sp = subProgress(editingItem);
+  if(sp.total && sp.done===sp.total && editingItem.status!=='done'){editingItem.status='done'}
+  else if(sp.total && sp.done<sp.total && editingItem.status==='done'){editingItem.status='doing'}
+
+  const existing = state.items.find(x=>x.id===editingItem.id);
+  if(existing){Object.assign(existing, editingItem);toast('事项已保存')}
+  else{state.items.push(editingItem);toast('事项已创建')}
+  save(); hideModal('editorOverlay'); render();
+}
+
+function deleteItem(){
+  if(!editingItem||!editingItem.id) return;
+  if(!confirm('确定删除该事项及其所有子任务？此操作不可恢复。')) return;
+  state.items = state.items.filter(x=>x.id!==editingItem.id);
+  save(); hideModal('editorOverlay'); render();
+  toast('事项已删除');
+}
+
+/* ========== Detail ========== */
+function openDetail(id){
+  const it = state.items.find(x=>x.id===id); if(!it) return;
+  const cat = state.categories.find(c=>c.id===it.categoryId);
+  const sp = subProgress(it);
+  const ds = dateStatus(it.deadline);
+  const overdue = ds==='overdue' && it.status!=='done';
+  const todayBadge = ds==='today' && it.status!=='done';
+  let meta = '';
+  if(cat) meta += `<span class="badge badge-cat"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${cat.color};margin-right:4px;vertical-align:middle"></span>${escapeHtml(cat.name)}</span>`;
+  meta += `<span class="badge badge-pri-${it.priority}">${it.priority==='high'?'高':it.priority==='medium'?'中':'低'}优先级</span>`;
+  meta += `<span class="badge" style="background:#f3f4f6">${statusLabel(it.status)}</span>`;
+  if(it.deadline) meta += `<span class="badge ${overdue?'badge-overdue':todayBadge?'badge-today':'badge-due'}">${overdue?'逾期 ':todayBadge?'今天 到期':'截止 '}${fmtDate(it.deadline)}</span>`;
+  if(sp.total) meta += `<span class="badge" style="background:var(--green-soft);color:var(--green)">子任务 ${sp.done}/${sp.total}</span>`;
+
+  let subsHtml = '';
+  if(it.subtasks && it.subtasks.length){
+    subsHtml = it.subtasks.map(s=>{
+      const sds = dateStatus(s.deadline);
+      const sover = sds==='overdue' && s.status!=='done';
+      const stoday = sds==='today' && s.status!=='done';
+      return `<div class="d-subrow ${s.status==='done'?'done':''}" data-sid="${s.id}">
+        <div class="dcheck ${s.status==='done'?'done':''}" data-dcheck="${it.id}|${s.id}"></div>
+        <div class="cell">
+          <div class="stitle" style="font-weight:600">${escapeHtml(s.title)}</div>
+          <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)">
+            <span>${s.owner?'👤 '+escapeHtml(s.owner):'👤 未指派'}</span>
+            ${s.deadline?`<span style="color:${sover?'var(--red)':stoday?'var(--amber)':'inherit'}">${sover?'逾期 ':stoday?'今天 ':'计划完成 '}${fmtDate(s.deadline)}</span>`:''}
+            <span>${statusLabel(s.status)}</span>
+          </div>
+          ${s.deliverable?`<div style="margin-top:6px;font-size:12px"><span class="lbl" style="color:var(--muted)">交付物：</span>${escapeHtml(s.deliverable)}</div>`:''}
+        </div>
+        <div class="cell" style="grid-column:3 / span 2">
+          <div class="lbl" style="color:var(--muted)">进展</div>
+          <div class="progress-box ${s.progress?'':'empty'}">${s.progress?escapeHtml(s.progress):'暂无进展记录'}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }else{
+    subsHtml = '<div style="color:var(--muted);font-size:12.5px;padding:8px 0">该事项尚未拆解子任务</div>';
+  }
+
+  document.getElementById('detailBody').innerHTML = `
+    <div class="detail-title">${escapeHtml(it.title)}</div>
+    <div class="detail-meta">${meta}</div>
+    ${it.description?`<div class="detail-desc">${escapeHtml(it.description)}</div>`:''}
+    <div class="detail-section">
+      <h3>子任务与进展 ${sp.total?`<span style="color:var(--muted);font-size:12px;font-weight:500">${sp.done}/${sp.total} · ${sp.rate??0}%</span>`:''}</h3>
+      ${subsHtml}
+    </div>
+    <div class="detail-section">
+      <h3>时间</h3>
+      <div style="font-size:12.5px;color:var(--muted)">
+        创建于 ${new Date(it.createdAt).toLocaleString('zh-CN',{hour12:false})}<br>
+        更新于 ${new Date(it.updatedAt).toLocaleString('zh-CN',{hour12:false})}
+      </div>
+    </div>`;
+  document.getElementById('detailBody').dataset.id = id;
+  document.getElementById('btnDetailStatus').textContent = it.status==='done'?'标记为待办':it.status==='todo'?'开始推进':'标记完成';
+  document.getElementById('btnDetailStatus').onclick = ()=>{
+    const next = it.status==='todo'?'doing':it.status==='doing'?'done':'todo';
+    changeItemStatus(it.id, next);
+    openDetail(it.id);
+  };
+  document.getElementById('btnDetailEdit').onclick = ()=>{hideModal('detailOverlay');openEditor(it.id)};
+  document.querySelectorAll('[data-dcheck]').forEach(el=>el.onclick=()=>{
+    const [iid,sid] = el.dataset.dcheck.split('|');
+    toggleSubDone(iid,sid);
+    openDetail(iid);
+  });
+  showModal('detailOverlay');
+}
+
+/* ========== Category ========== */
+function openCatManager(){
+  renderCatList();
+  document.getElementById('newCatName').value='';
+  showModal('catOverlay');
+}
+function renderCatList(){
+  const list = document.getElementById('catList');
+  list.innerHTML = state.categories.map(c=>{
+    const used = state.items.filter(i=>i.categoryId===c.id).length;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c.color};margin-right:8px;vertical-align:middle"></span>${escapeHtml(c.name)} <span style="color:var(--muted);font-size:12px">(${used})</span></span>
+      <button class="btn btn-sm btn-danger" data-delcat="${c.id}" ${used?'disabled title="该分类下有事项，不能删除"':''}>删除</button>
+    </div>`;
+  }).join('') || '<div style="color:var(--muted);font-size:13px">暂无分类</div>';
+  list.querySelectorAll('[data-delcat]').forEach(b=>b.onclick=()=>{
+    state.categories = state.categories.filter(c=>c.id!==b.dataset.delcat);
+    save(); renderCatList(); renderFilters();
+  });
+}
+function addCategory(){
+  const name = document.getElementById('newCatName').value.trim();
+  if(!name){toast('请输入分类名称');return}
+  const color = document.getElementById('newCatColor').value;
+  state.categories.push({id:uid(),name,color});
+  save(); renderCatList(); renderFilters();
+  document.getElementById('newCatName').value='';
+  toast('分类已添加');
+}
+
+/* ========== Import / Export ========== */
+function exportData(){
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `工作台备份_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('已导出备份文件');
+}
+function importData(file){
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const d = JSON.parse(reader.result);
+      const mig = migrate(d) || d;
+      if(!mig.items || !Array.isArray(mig.items)) throw new Error('格式错误');
+      if(!confirm(`将导入 ${mig.items.length} 个事项、${(mig.categories||[]).length} 个分类，是否覆盖当前数据？`)) return;
+      state = {items:mig.items, categories:(mig.categories&&mig.categories.length)?mig.categories:defaultCats.map(c=>({...c})), view:state.view};
+      save(); render();
+      toast('导入成功');
+    }catch(e){toast('导入失败：'+e.message)}
+  };
+  reader.readAsText(file);
+}
+
+/* ========== Modal ========== */
+function showModal(id){document.getElementById(id).classList.add('show')}
+function hideModal(id){document.getElementById(id).classList.remove('show')}
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>hideModal(b.dataset.close));
+document.querySelectorAll('.overlay').forEach(o=>o.onclick=(e)=>{if(e.target===o)o.classList.remove('show')});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') document.querySelectorAll('.overlay.show').forEach(o=>o.classList.remove('show'));
+});
+
+/* ========== Bindings ========== */
+document.getElementById('btnNew').onclick = ()=>openEditor();
+document.getElementById('btnSave').onclick = saveItem;
+document.getElementById('btnDelete').onclick = deleteItem;
+document.getElementById('btnAddSub').onclick = addSub;
+document.getElementById('btnExport').onclick = exportData;
+document.getElementById('btnImport').onclick = ()=>document.getElementById('importFile').click();
+document.getElementById('importFile').onchange = (e)=>{if(e.target.files[0]) importData(e.target.files[0]);e.target.value=''};
+document.getElementById('btnCat').onclick = openCatManager;
+document.getElementById('btnAddCat').onclick = addCategory;
+document.getElementById('newCatName').onkeydown = (e)=>{if(e.key==='Enter')addCategory()};
+['searchInput','filterCat','filterPri','filterStatus','filterOwner'].forEach(id=>{
+  document.getElementById(id).oninput = render;
+  document.getElementById(id).onchange = render;
+});
+
+/* Initial sample if empty */
+if(!state.items.length){
+  const todayStr = new Date().toISOString().slice(0,10);
+  const d = (offset)=>{const x=new Date();x.setDate(x.getDate()+offset);return x.toISOString().slice(0,10)};
+  state.items = [
+    {
+      id:uid(), title:'Q3 产品迭代发布', description:'完成新版本核心功能开发、联调与上线发布，目标是本月底前正式对外发布。',
+      categoryId:'c2', priority:'high', status:'doing', deadline:d(7),
+      createdAt:Date.now()-86400000*3, updatedAt:Date.now()-3600000,
+      subtasks:[
+        {id:uid(), title:'需求评审与方案设计', owner:'张三', deadline:d(-1), deliverable:'需求文档 v1.0', progress:'已完成评审，方案经两轮讨论确认。', status:'done', createdAt:Date.now()-86400000*3, updatedAt:Date.now()-86400000*2},
+        {id:uid(), title:'核心模块开发', owner:'李四', deadline:d(2), deliverable:'可运行代码 + 单测', progress:'接口层完成 80%，预计本周三联调。', status:'doing', createdAt:Date.now()-86400000*2, updatedAt:Date.now()-3600000*5},
+        {id:uid(), title:'测试用例编写与回归', owner:'王五', deadline:d(5), deliverable:'测试报告', progress:'用例已覆盖主流程，回归测试待开发完成后启动。', status:'todo', createdAt:Date.now()-86400000, updatedAt:Date.now()-86400000},
+        {id:uid(), title:'上线发布与监控', owner:'赵六', deadline:d(7), deliverable:'发布说明 + 监控面板', progress:'', status:'todo', createdAt:Date.now()-86400000, updatedAt:Date.now()-86400000}
+      ]
+    },
+    {
+      id:uid(), title:'本周工作计划梳理', description:'对齐本周关键交付事项，与上级同步进展。',
+      categoryId:'c1', priority:'medium', status:'todo', deadline:todayStr,
+      createdAt:Date.now()-86400000, updatedAt:Date.now()-86400000,
+      subtasks:[
+        {id:uid(), title:'列出本周 3 个关键事项', owner:'我', deadline:todayStr, deliverable:'本周计划清单', progress:'草稿已列，待优先级排序。', status:'doing', createdAt:Date.now()-86400000, updatedAt:Date.now()}
+      ]
+    },
+    {
+      id:uid(), title:'学习一项新技术', description:'每周投入 4 小时学习并产出笔记。',
+      categoryId:'c2', priority:'low', status:'doing', deadline:d(14),
+      createdAt:Date.now()-86400000*7, updatedAt:Date.now()-86400000*2,
+      subtasks:[
+        {id:uid(), title:'通读官方文档核心章节', owner:'我', deadline:d(7), deliverable:'读书笔记', progress:'已读完前 3 章，重点已标注。', status:'doing', createdAt:Date.now()-86400000*7, updatedAt:Date.now()-86400000*2},
+        {id:uid(), title:'动手完成示例项目', owner:'我', deadline:d(14), deliverable:'Demo 代码仓库', progress:'', status:'todo', createdAt:Date.now()-86400000*7, updatedAt:Date.now()-86400000*7}
+      ]
+    }
+  ];
+  save();
+}
+
+render();
+</script>
+</body>
+</html>
