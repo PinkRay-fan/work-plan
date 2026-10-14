@@ -253,6 +253,29 @@
   ::-webkit-scrollbar{width:8px;height:8px}
   ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:4px}
   ::-webkit-scrollbar-thumb:hover{background:#9ca3af}
+  /* 云端共享横幅 */
+  .cloud-banner{display:flex;align-items:center;justify-content:center;gap:8px;padding:6px 12px;margin:0 0 12px;background:linear-gradient(90deg,#eef2ff,#ecfdf5);border:1px solid #c7d2fe;border-radius:8px;font-size:12.5px;color:#3730a3}
+  .cloud-banner .dot{width:8px;height:8px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.18);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  /* 只读模式：隐藏所有编辑入口 */
+  body.cloud-readonly #btnNew,
+  body.cloud-readonly #btnImport,
+  body.cloud-readonly #btnPublish,
+  body.cloud-readonly #btnCat,
+  body.cloud-readonly #btnAddSub,
+  body.cloud-readonly #btnSave,
+  body.cloud-readonly #btnDelete,
+  body.cloud-readonly #btnDetailEdit,
+  body.cloud-readonly #btnDetailStatus,
+  body.cloud-readonly #btnAddCat,
+  body.cloud-readonly .cat-del,
+  body.cloud-readonly .sub-del,
+  body.cloud-readonly .row-edit,
+  body.cloud-readonly .sub-row-edit,
+  body.cloud-readonly .sub-progress-add,
+  body.cloud-readonly .editor-sub-add{display:none !important}
+  body.cloud-readonly .detail-section h3 button{display:none !important}
+  body.cloud-readonly .cat-wrap .gear{display:none !important}
 </style>
 </head>
 <body>
@@ -266,9 +289,11 @@
       <button class="btn" id="btnExport" title="导出JSON备份">⬇ 导出</button>
       <button class="btn" id="btnImport" title="导入JSON">⬆ 导入</button>
       <input type="file" id="importFile" accept="application/json" style="display:none">
+      <button class="btn" id="btnPublish" title="将当前计划发布到云端，他人可在线查看" style="display:none">☁ 发布</button>
       <button class="btn btn-primary" id="btnNew">+ 新建事项</button>
     </div>
   </div>
+  <div class="cloud-banner" id="cloudBanner" style="display:none"></div>
 
   <div class="tabs">
     <button class="tab active" data-view="board">📋 看板</button>
@@ -404,6 +429,10 @@
 <script>
 /* ========== State ========== */
 const STORAGE_KEY = 'workbench_v2';
+const REPO = 'PinkRay-fan/work-plan';
+const DATA_FILE = 'data.json';
+const GH_API = 'https://api.github.com';
+const IS_CLOUD = location.protocol === 'https:' && /pinkray-fan\.github\.io/.test(location.hostname);
 const defaultCats = [
   {id:'c1',name:'日常工作',color:'#4f6df5'},
   {id:'c2',name:'专项开展',color:'#16a34a'}
@@ -484,7 +513,78 @@ function load(){
   }catch(e){console.warn('load failed',e)}
   return {items:[],categories:defaultCats.map(c=>({...c})),view:'board',catVersion:CAT_VERSION};
 }
-function save(){localStorage.setItem(STORAGE_KEY, JSON.stringify(state))}
+function save(){if(IS_CLOUD) return; localStorage.setItem(STORAGE_KEY, JSON.stringify(state))}
+
+/* ========== Cloud sync ========== */
+function fmtCloudTime(iso){
+  if(!iso) return '未知';
+  try{ const d=new Date(iso); return `${d.getMonth()+1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` }catch(e){return iso}
+}
+function b64DecodeUtf8(b64){
+  const bin = atob(b64.replace(/\n/g,''));
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(bytes);
+}
+function b64EncodeUtf8(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin='';
+  const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk){ bin += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk)) }
+  return btoa(bin);
+}
+async function loadCloud(){
+  try{
+    const url = `${GH_API}/repos/${REPO}/contents/${DATA_FILE}?ref=main&_=${Date.now()}`;
+    const r = await fetch(url, {headers:{'Accept':'application/vnd.github+json'}});
+    if(!r.ok){ throw new Error('HTTP '+r.status) }
+    const j = await r.json();
+    const txt = b64DecodeUtf8(j.content);
+    const data = JSON.parse(txt);
+    state = {
+      items: data.items||[],
+      categories: data.categories||defaultCats.map(c=>({...c})),
+      view: state.view||'board',
+      catVersion: CAT_VERSION
+    };
+    document.getElementById('cloudBanner').style.display='flex';
+    document.getElementById('cloudBanner').innerHTML = `<span class="dot"></span>☁ 共享版 · 仅查看 · 最后更新：${fmtCloudTime(data.publishedAt)} <a href="javascript:loadCloud()" style="color:#4f6df5;margin-left:6px">刷新</a>`;
+    render();
+  }catch(e){
+    document.getElementById('cloudBanner').style.display='flex';
+    document.getElementById('cloudBanner').innerHTML = `<span class="dot" style="background:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.18)"></span>☁ 暂无已发布的计划。等待发布者点击「☁ 发布」同步。`;
+    console.warn('loadCloud failed', e);
+  }
+}
+async function publish(){
+  const token = localStorage.getItem('gh_publish_token') || prompt('请输入有 Contents 写权限的 GitHub Token（仅存本地浏览器，不上传）：\n\n在 https://github.com/settings/personal-access-tokens/new 生成，Repository permissions → Contents 设为 Read and write');
+  if(!token){ toast('已取消发布'); return }
+  const btn = document.getElementById('btnPublish');
+  btn.disabled = true; btn.textContent = '☁ 发布中…';
+  try{
+    const payload = { items: state.items, categories: state.categories, publishedAt: new Date().toISOString(), version: 2 };
+    const content = b64EncodeUtf8(JSON.stringify(payload));
+    let sha = null;
+    try{
+      const cur = await fetch(`${GH_API}/repos/${REPO}/contents/${DATA_FILE}`, {headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json'}});
+      if(cur.ok){ const cj = await cur.json(); sha = cj.sha }
+    }catch(e){}
+    const body = { message: 'publish: 发布工作计划 ' + payload.publishedAt, content };
+    if(sha) body.sha = sha;
+    const r = await fetch(`${GH_API}/repos/${REPO}/contents/${DATA_FILE}`, {
+      method:'PUT',
+      headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if(!r.ok){ const ej = await r.json().catch(()=>({})); throw new Error(ej.message||('HTTP '+r.status)) }
+    localStorage.setItem('gh_publish_token', token);
+    toast('✅ 已发布到云端，他人刷新即可查看');
+  }catch(e){
+    toast('❌ 发布失败：'+e.message);
+  }finally{
+    btn.disabled = false; btn.textContent = '☁ 发布';
+  }
+}
 
 /* ========== Date helpers ========== */
 const today = new Date(); today.setHours(0,0,0,0);
@@ -1257,14 +1357,23 @@ document.getElementById('btnImport').onclick = ()=>document.getElementById('impo
 document.getElementById('importFile').onchange = (e)=>{if(e.target.files[0]) importData(e.target.files[0]);e.target.value=''};
 document.getElementById('btnCat').onclick = openCatManager;
 document.getElementById('btnAddCat').onclick = addCategory;
+document.getElementById('btnPublish').onclick = publish;
 document.getElementById('newCatName').onkeydown = (e)=>{if(e.key==='Enter')addCategory()};
 ['searchInput','filterCat','filterPri','filterStatus','filterOwner'].forEach(id=>{
   document.getElementById(id).oninput = render;
   document.getElementById(id).onchange = render;
 });
 
-/* Initial sample if empty */
-if(!state.items.length){
+/* ========== Mode dispatch ========== */
+if(IS_CLOUD){
+  /* 云端只读模式：禁用编辑、拉取云端数据 */
+  document.body.classList.add('cloud-readonly');
+  render();
+  loadCloud();
+}else{
+  document.getElementById('btnPublish').style.display = '';
+  /* Initial sample if empty */
+  if(!state.items.length){
   const todayStr = new Date().toISOString().slice(0,10);
   const d = (offset)=>{const x=new Date();x.setDate(x.getDate()+offset);return x.toISOString().slice(0,10)};
   state.items = [
@@ -1298,9 +1407,9 @@ if(!state.items.length){
     }
   ];
   save();
+  }
+  render();
 }
-
-render();
 </script>
 </body>
 </html>
