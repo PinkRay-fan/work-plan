@@ -290,6 +290,7 @@
       <button class="btn" id="btnImport" title="导入JSON">⬆ 导入</button>
       <input type="file" id="importFile" accept="application/json" style="display:none">
       <button class="btn" id="btnPublish" title="将当前计划发布到云端，他人可在线查看" style="display:none">☁ 发布</button>
+      <button class="btn" id="btnAutoPublish" title="开启后每次改动自动同步云端（3秒防抖）" style="display:none">⏺ 自动：关</button>
       <button class="btn btn-primary" id="btnNew">+ 新建事项</button>
     </div>
   </div>
@@ -433,6 +434,8 @@ const REPO = 'PinkRay-fan/work-plan';
 const DATA_FILE = 'data.json';
 const GH_API = 'https://api.github.com';
 const IS_CLOUD = location.protocol === 'https:' && /pinkray-fan\.github\.io/.test(location.hostname);
+const AUTO_PUBLISH_KEY = 'auto_publish';
+let autoPublishTimer = null;
 const defaultCats = [
   {id:'c1',name:'日常工作',color:'#4f6df5'},
   {id:'c2',name:'专项开展',color:'#16a34a'}
@@ -513,7 +516,14 @@ function load(){
   }catch(e){console.warn('load failed',e)}
   return {items:[],categories:defaultCats.map(c=>({...c})),view:'board',catVersion:CAT_VERSION};
 }
-function save(){if(IS_CLOUD) return; localStorage.setItem(STORAGE_KEY, JSON.stringify(state))}
+function save(){
+  if(IS_CLOUD) return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if(localStorage.getItem(AUTO_PUBLISH_KEY) === '1' && localStorage.getItem('gh_publish_token')){
+    clearTimeout(autoPublishTimer);
+    autoPublishTimer = setTimeout(()=>publish(true), 3000);
+  }
+}
 
 /* ========== Cloud sync ========== */
 function fmtCloudTime(iso){
@@ -556,11 +566,15 @@ async function loadCloud(){
     console.warn('loadCloud failed', e);
   }
 }
-async function publish(){
-  const token = localStorage.getItem('gh_publish_token') || prompt('请输入有 Contents 写权限的 GitHub Token（仅存本地浏览器，不上传）：\n\n在 https://github.com/settings/personal-access-tokens/new 生成，Repository permissions → Contents 设为 Read and write');
-  if(!token){ toast('已取消发布'); return }
+async function publish(isAuto){
+  let token = localStorage.getItem('gh_publish_token');
+  if(!token){
+    if(isAuto) return; /* 自动模式无 token 静默跳过 */
+    token = prompt('请输入有 Contents 写权限的 GitHub Token（仅存本地浏览器，不上传）：\n\n在 https://github.com/settings/personal-access-tokens/new 生成，Repository permissions → Contents 设为 Read and write');
+    if(!token){ toast('已取消发布'); return }
+  }
   const btn = document.getElementById('btnPublish');
-  btn.disabled = true; btn.textContent = '☁ 发布中…';
+  if(!isAuto){ btn.disabled = true; btn.textContent = '☁ 发布中…' }
   try{
     const payload = { items: state.items, categories: state.categories, publishedAt: new Date().toISOString(), version: 2 };
     const content = b64EncodeUtf8(JSON.stringify(payload));
@@ -569,7 +583,7 @@ async function publish(){
       const cur = await fetch(`${GH_API}/repos/${REPO}/contents/${DATA_FILE}`, {headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json'}});
       if(cur.ok){ const cj = await cur.json(); sha = cj.sha }
     }catch(e){}
-    const body = { message: 'publish: 发布工作计划 ' + payload.publishedAt, content };
+    const body = { message: 'publish: ' + (isAuto?'自动':'手动') + '发布 ' + payload.publishedAt, content };
     if(sha) body.sha = sha;
     const r = await fetch(`${GH_API}/repos/${REPO}/contents/${DATA_FILE}`, {
       method:'PUT',
@@ -578,12 +592,32 @@ async function publish(){
     });
     if(!r.ok){ const ej = await r.json().catch(()=>({})); throw new Error(ej.message||('HTTP '+r.status)) }
     localStorage.setItem('gh_publish_token', token);
-    toast('✅ 已发布到云端，他人刷新即可查看');
+    if(!isAuto) toast('✅ 已发布到云端，他人刷新即可查看');
   }catch(e){
     toast('❌ 发布失败：'+e.message);
   }finally{
-    btn.disabled = false; btn.textContent = '☁ 发布';
+    if(!isAuto){ btn.disabled = false; btn.textContent = '☁ 发布' }
   }
+}
+function toggleAutoPublish(){
+  const cur = localStorage.getItem(AUTO_PUBLISH_KEY) === '1';
+  const next = !cur;
+  localStorage.setItem(AUTO_PUBLISH_KEY, next ? '1' : '0');
+  updateAutoPublishBtn();
+  if(next && !localStorage.getItem('gh_publish_token')){
+    toast('⚠ 已开启自动发布，但还没设置 Token。点「☁ 发布」手动输入一次 Token 即可生效');
+  }else{
+    toast(next ? '✅ 已开启自动发布（改动 3 秒后自动同步）' : '已关闭自动发布');
+  }
+}
+function updateAutoPublishBtn(){
+  const on = localStorage.getItem(AUTO_PUBLISH_KEY) === '1';
+  const btn = document.getElementById('btnAutoPublish');
+  if(!btn) return;
+  btn.textContent = '⏺ 自动：' + (on ? '开' : '关');
+  btn.style.background = on ? 'linear-gradient(90deg,#ecfdf5,#d1fae5)' : '';
+  btn.style.borderColor = on ? '#10b981' : '';
+  btn.style.color = on ? '#047857' : '';
 }
 
 /* ========== Date helpers ========== */
@@ -1357,7 +1391,8 @@ document.getElementById('btnImport').onclick = ()=>document.getElementById('impo
 document.getElementById('importFile').onchange = (e)=>{if(e.target.files[0]) importData(e.target.files[0]);e.target.value=''};
 document.getElementById('btnCat').onclick = openCatManager;
 document.getElementById('btnAddCat').onclick = addCategory;
-document.getElementById('btnPublish').onclick = publish;
+document.getElementById('btnPublish').onclick = ()=>publish(false);
+document.getElementById('btnAutoPublish').onclick = toggleAutoPublish;
 document.getElementById('newCatName').onkeydown = (e)=>{if(e.key==='Enter')addCategory()};
 ['searchInput','filterCat','filterPri','filterStatus','filterOwner'].forEach(id=>{
   document.getElementById(id).oninput = render;
@@ -1372,6 +1407,8 @@ if(IS_CLOUD){
   loadCloud();
 }else{
   document.getElementById('btnPublish').style.display = '';
+  document.getElementById('btnAutoPublish').style.display = '';
+  updateAutoPublishBtn();
   /* Initial sample if empty */
   if(!state.items.length){
   const todayStr = new Date().toISOString().slice(0,10);
